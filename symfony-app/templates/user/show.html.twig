@@ -1,0 +1,273 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Szczegóły Użytkownika - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div id="user-show-app" data-user-id="{{ userId }}">
+    <div v-if="loading" class="text-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Ładowanie...</span>
+        </div>
+        <p class="mt-2">Ładowanie danych użytkownika...</p>
+    </div>
+    
+    <div v-else-if="error" class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        [[ error ]]
+        <button class="btn btn-sm btn-outline-danger ms-3" @click="fetchUser">
+            <i class="bi bi-arrow-clockwise"></i> Spróbuj ponownie
+        </button>
+    </div>
+    
+    <template v-else>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="mb-0">Szczegóły użytkownika</h1>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="{{ path('user_index') }}">Użytkownicy</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Szczegóły</li>
+                    </ol>
+                </nav>
+            </div>
+            <a href="{{ path('user_index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Powrót do listy
+            </a>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h2 class="h5 mb-0">
+                            <i class="bi bi-person-badge me-2"></i>Profil użytkownika
+                        </h2>
+                        <span class="badge bg-primary rounded-pill">ID: [[ user.id ]]</span>
+                    </div>
+            <div class="card-body p-0">
+                <div class="row g-0">
+                    <!-- Left Column - User Avatar -->
+                    <div class="col-lg-4 p-4 text-center border-end">
+                        <div class="mb-4">
+                            <div class="user-avatar" 
+                                 :class="[user.gender === 'male' ? 'bg-primary' : 'bg-pink', 'text-white d-flex align-items-center justify-content-center mx-auto mb-3']"
+                                 style="width: 150px; height: 150px; border-radius: 50%; font-size: 4rem;">
+                                [[ user.first_name ? user.first_name[0].toUpperCase() : '' ]][[ user.last_name ? user.last_name[0].toUpperCase() : '' ]]
+                            </div>
+                            <h3 class="h4 mb-2">[[ user.first_name ]] [[ user.last_name ]]</h3>
+                            <span class="badge rounded-pill px-3 py-2" 
+                                  :class="user.gender === 'male' ? 'bg-primary' : 'bg-pink'">
+                                <i class="bi" :class="user.gender === 'male' ? 'bi-gender-male' : 'bi-gender-female'"></i>
+                                [[ user.gender === 'male' ? 'mężczyzna' : 'kobieta' ]]
+                            </span>
+                            
+                            <div class="mt-4 pt-3 border-top">
+                                <div class="d-flex gap-2">
+                                    <a href="{{ path('user_edit', {'id': userId}) }}" class="btn btn-outline-primary" data-bs-toggle="tooltip" title="Edytuj użytkownika">
+                                        <i class="bi bi-pencil"></i>
+                                        <span class="d-none d-sm-inline">Edytuj</span>
+                                    </a>
+                                    
+                                    <a href="{{ path('user_index') }}" class="btn btn-outline-secondary" data-bs-toggle="tooltip" title="Powrót do listy">
+                                        <i class="bi bi-arrow-left"></i>
+                                        <span class="d-none d-sm-inline">Powrót</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column - User Details -->
+                    <div class="col-lg-8">
+                        <div class="p-4">
+                            <div class="mb-4">
+                                <h5 class="mb-3 text-muted text-uppercase">
+                                    <i class="bi bi-person-lines-fill me-2"></i>Dane osobowe
+                                </h5>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="card h-100 border-0 shadow-sm">
+                                            <div class="card-body">
+                                                <h6 class="card-subtitle mb-3 text-muted">
+                                                    <i class="bi bi-person me-1"></i>Podstawowe informacje
+                                                </h6>
+                                                <dl class="mb-0">
+                                                    <dt class="small text-muted mb-1">Imię i nazwisko</dt>
+                                                    <dd class="mb-3">[[ user.first_name ]] [[ user.last_name ]]</dd>
+                                                    
+                                                    <dt class="small text-muted mb-1">Płeć</dt>
+                                                    <dd class="mb-3">
+                                                        <span class="badge bg-opacity-10" 
+                                                              :class="user.gender === 'male' ? 'bg-primary text-primary' : 'bg-pink text-pink'">
+                                                            [[ user.gender === 'male' ? 'mężczyzna' : 'kobieta' ]]
+                                                        </span>
+                                                    </dd>
+                                                    
+                                                    <dt class="small text-muted mb-1">Data urodzenia</dt>
+                                                    <dd class="mb-0">
+                                                        <template v-if="user.birthdate">
+                                                            [[ formatDate(user.birthdate) ]] 
+                                                            <span class="text-muted">([[ calculateAge(user.birthdate) ]] lat)</span>
+                                                        </template>
+                                                        <span v-else>Nie podano</span>
+                                                    </dd>
+                                                </dl>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="card h-100 border-0 shadow-sm">
+                                            <div class="card-body">
+                                                <h6 class="card-subtitle mb-3 text-muted">
+                                                    <i class="bi bi-clock-history me-1"></i>Daty
+                                                </h6>
+                                                <dl class="mb-0">
+                                                    <dt class="small text-muted mb-1">Data utworzenia</dt>
+                                                    <dd class="mb-3">
+                                                        <i class="bi bi-calendar-plus me-1"></i>
+                                                        <template v-if="user.inserted_at">
+                                                            [[ formatDateTime(user.inserted_at) ]]
+                                                        </template>
+                                                        <span v-else>Nieznana</span>
+                                                    </dd>
+                                                    
+                                                    <dt class="small text-muted mb-1">Ostatnia aktualizacja</dt>
+                                                    <dd class="mb-0">
+                                                        <i class="bi bi-arrow-clockwise me-1"></i>
+                                                        <template v-if="user.updated_at">
+                                                            [[ formatDateTime(user.updated_at) ]]
+                                                        </template>
+                                                        <span v-else>Brak aktualizacji</span>
+                                                    </dd>
+                                                </dl>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </template>
+</div>
+            </div>
+        </div>
+            </div>
+        
+
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const appElement = document.getElementById('user-show-app');
+    if (!appElement) return;
+    
+    const userId = appElement.dataset.userId;
+    const apiBaseUrl = 'http://localhost:4000'; // Phoenix API URL
+    
+    const app = Vue.createApp({
+        delimiters: ['[[', ']]'],
+        data() {
+            return {
+                loading: true,
+                error: null,
+                user: {
+                    id: null,
+                    first_name: '',
+                    last_name: '',
+                    gender: null,
+                    birthdate: null,
+                    inserted_at: null,
+                    updated_at: null
+                },
+                error: null
+            };
+        },
+        async created() {
+            await this.fetchUser();
+            this.initializeTooltips();
+        },
+        methods: {
+            async fetchUser() {
+                this.loading = true;
+                this.error = null;
+                
+                try {
+                    const response = await fetch(`${apiBaseUrl}/users/${userId}`, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || 'Nie udało się pobrać danych użytkownika');
+                    }
+                    
+                    const data = await response.json();
+                    this.user = data.data;
+                    
+                } catch (err) {
+                    console.error('Error fetching user:', err);
+                    this.error = 'Wystąpił błąd podczas pobierania danych użytkownika: ' + err.message;
+                } finally {
+                    this.loading = false;
+                }
+            },
+            
+            formatDate(dateString) {
+                if (!dateString) return '';
+                const date = new Date(dateString);
+                return date.toLocaleDateString('pl-PL');
+            },
+            
+            formatDateTime(datetimeString) {
+                if (!datetimeString) return '';
+                const date = new Date(datetimeString);
+                return date.toLocaleString('pl-PL');
+            },
+            
+            calculateAge(birthdate) {
+                if (!birthdate) return '';
+                const birthDate = new Date(birthdate);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                
+                return age;
+            },
+            
+            // Delete functionality has been removed from this page
+            
+            initializeTooltips() {
+                // Initialize Bootstrap tooltips after Vue has rendered the content
+                this.$nextTick(() => {
+                    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                    tooltipTriggerList.forEach(tooltipTriggerEl => {
+                        new bootstrap.Tooltip(tooltipTriggerEl);
+                    });
+                });
+            }
+        }
+    });
+    
+    // Store the Vue instance in a variable
+    const vm = app.mount('#user-show-app');
+});
+</script>
+{% endblock %}

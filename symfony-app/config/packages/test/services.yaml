@@ -1,0 +1,26 @@
+# This file is the test environment equivalent of services.yaml
+# It configures services specifically for the 'test' environment
+
+parameters:
+    # Set a mock API URL for testing (parameter names must match those in services.yaml)
+    phoenix_api.base_url: 'https://example.com/api'
+    phoenix_api.timeout: 10
+    phoenix_api.retry_attempts: 3
+    phoenix_api.retry_delay: 1000
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    # Configure the test client to handle redirects properly
+    test.client:
+        class: Symfony\Bundle\FrameworkBundle\KernelBrowser
+        public: true
+
+    # Make the test container available in tests
+    test.service_container:
+        class: Symfony\Component\DependencyInjection\ContainerInterface
+        public: true
+        factory: ['@test.service_container', 'get']

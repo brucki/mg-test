@@ -1,0 +1,76 @@
+{# Base error template that other error templates will extend #}
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ status_code }} {{ status_text }} - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-5 text-center">
+                    <div class="error-icon mb-4">
+                        <i class="bi bi-{{ icon|default('exclamation-triangle') }} display-1 text-{{ status_code == 404 ? 'info' : 'danger' }}"></i>
+                    </div>
+                    
+                    <h1 class="display-5 fw-bold mb-3">{{ status_code }} {{ status_text }}</h1>
+                    
+                    <div class="error-message mb-4">
+                        {% block error_message %}
+                            <p class="lead">{{ message|default('Wystąpił nieoczekiwany błąd. Prosimy spróbować ponownie później.') }}</p>
+                        {% endblock %}
+                    </div>
+                    
+                    <div class="error-actions">
+                        <a href="{{ path('user_index') }}" class="btn btn-primary btn-lg me-2">
+                            <i class="bi bi-house-door me-2"></i>Strona główna
+                        </a>
+                        <button onclick="window.history.back()" class="btn btn-outline-secondary btn-lg">
+                            <i class="bi bi-arrow-left me-2"></i>Powrót
+                        </button>
+                    </div>
+                    
+                    {% if is_safe and exception is defined and exception %}
+                        <div class="mt-5 text-start">
+                            <h3 class="h5 mb-3">Szczegóły błędu:</h3>
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <p><strong>Wiadomość:</strong> {{ exception.message }}</p>
+                                    <p><strong>Plik:</strong> {{ exception.file|default('Nieznany') }}:{{ exception.line|default('?') }}</p>
+                                    
+                                    {% if exception.previous %}
+                                        <div class="mt-3">
+                                            <h4 class="h6">Poprzedni wyjątek:</h4>
+                                            <p>{{ exception.previous.message }}</p>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <div class="mt-3">
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#errorTrace">
+                                            Pokaż szczegóły techniczne
+                                        </button>
+                                        <div class="collapse mt-3" id="errorTrace">
+                                            <pre class="bg-dark text-light p-3 rounded small">{{ exception.traceAsString }}</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.error-icon {
+    font-size: 5rem;
+    line-height: 1;
+    margin-bottom: 2rem;
+}
+.error-actions {
+    margin-top: 2rem;
+}
+</style>
+{% endblock %}

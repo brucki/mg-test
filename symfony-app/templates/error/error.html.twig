@@ -1,0 +1,8 @@
+{% extends 'error/base.html.twig' %}
+
+{% set icon = 'exclamation-octagon' %}
+
+{% block error_message %}
+    <p class="lead">Wystąpił błąd ({{ status_code }}: {{ status_text }})</p>
+    <p>Prosimy spróbować ponownie później lub skontaktować się z administratorem, jeśli problem będzie się powtarzał.</p>
+{% endblock %}

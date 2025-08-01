@@ -1,0 +1,30 @@
+# Test-specific service configuration
+parameters:
+    app.phoenix_api.base_url: 'http://phoenix-api:4000'
+    app.phoenix_api.timeout: 10
+    app.phoenix_api.retry_attempts: 3
+    app.phoenix_api.retry_delay: 1000
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: true
+
+    # Make the test client available
+    test.client:
+        class: Symfony\Bundle\FrameworkBundle\KernelBrowser
+        public: true
+
+    # Make the test container available
+    test.service_container:
+        class: Symfony\Component\DependencyInjection\ContainerInterface
+        public: true
+        factory: ['@test.service_container', 'get']
+
+    # Define the test user API service with explicit parameter injection
+    App\Service\UserApiService:
+        arguments:
+            $httpClient: '@http_client'
+            $params: !service { class: Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface }
+        public: true

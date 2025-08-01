@@ -1,0 +1,89 @@
+{# Pagination component #}
+{% if pagination.total_pages > 1 %}
+    <nav aria-label="Nawigacja po stronach" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {# First page #}
+            <li class="page-item {{ not pagination.has_previous ? 'disabled' }}">
+                <a class="page-link" href="{{ path(app.request.attributes.get('_route'), app.request.query.all|merge({'page': 1})) }}" 
+                   aria-label="Pierwsza strona">
+                    <span aria-hidden="true">&laquo;&laquo;</span>
+                </a>
+            </li>
+            
+            {# Previous page #}
+            <li class="page-item {{ not pagination.has_previous ? 'disabled' }}">
+                <a class="page-link" 
+                   href="{{ path(app.request.attributes.get('_route'), app.request.query.all|merge({'page': pagination.current_page - 1})) }}" 
+                   aria-label="Poprzednia">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            
+            {# Page numbers #}
+            {% set startPage = max(1, pagination.current_page - 2) %}
+            {% set endPage = min(pagination.total_pages, pagination.current_page + 2) %}
+            
+            {% if startPage > 1 %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            {% endif %}
+            
+            {% for i in startPage..endPage %}
+                <li class="page-item {{ i == pagination.current_page ? 'active' }}">
+                    <a class="page-link" 
+                       href="{{ path(app.request.attributes.get('_route'), app.request.query.all|merge({'page': i})) }}">
+                        {{ i }}
+                    </a>
+                </li>
+            {% endfor %}
+            
+            {% if endPage < pagination.total_pages %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            {% endif %}
+            
+            {# Next page #}
+            <li class="page-item {{ not pagination.has_next ? 'disabled' }}">
+                <a class="page-link" 
+                   href="{{ path(app.request.attributes.get('_route'), app.request.query.all|merge({'page': pagination.current_page + 1})) }}" 
+                   aria-label="Następna">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            
+            {# Last page #}
+            <li class="page-item {{ not pagination.has_next ? 'disabled' }}">
+                <a class="page-link" 
+                   href="{{ path(app.request.attributes.get('_route'), app.request.query.all|merge({'page': pagination.total_pages})) }}" 
+                   aria-label="Ostatnia strona">
+                    <span aria-hidden="true">&raquo;&raquo;</span>
+                </a>
+            </li>
+        </ul>
+        
+        {# Items per page selector #}
+        <div class="d-flex justify-content-center align-items-center mt-2">
+            <small class="text-muted me-2">
+                Wyświetlono {{ (pagination.current_page - 1) * pagination.items_per_page + 1 }}-{{ min(pagination.current_page * pagination.items_per_page, pagination.total_items) }} z {{ pagination.total_items }}
+            </small>
+            
+            <div class="btn-group btn-group-sm ms-3">
+                <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    {{ pagination.items_per_page }} na stronę
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item {{ pagination.items_per_page == 10 ? 'active' }}" 
+                          href="{{ path(app.request.attributes.get('_route'), app.request.query.all|merge({'per_page': 10, 'page': 1})) }}">10 na stronę</a></li>
+                    <li><a class="dropdown-item {{ pagination.items_per_page == 20 ? 'active' }}" 
+                          href="{{ path(app.request.attributes.get('_route'), app.request.query.all|merge({'per_page': 20, 'page': 1})) }}">20 na stronę</a></li>
+                    <li><a class="dropdown-item {{ pagination.items_per_page == 50 ? 'active' }}" 
+                          href="{{ path(app.request.attributes.get('_route'), app.request.query.all|merge({'per_page': 50, 'page': 1})) }}">50 na stronę</a></li>
+                    <li><a class="dropdown-item {{ pagination.items_per_page == 100 ? 'active' }}" 
+                          href="{{ path(app.request.attributes.get('_route'), app.request.query.all|merge({'per_page': 100, 'page': 1})) }}">100 na stronę</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+{% endif %}

@@ -1,0 +1,20 @@
+# Test-specific service configuration
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: true
+
+    # Configure test parameters
+    _defaults:
+        bind:
+            $phoenixApiBaseUrl: 'http://phoenix-api:4000'
+            $phoenixApiTimeout: 10
+            $phoenixApiRetryAttempts: 3
+            $phoenixApiRetryDelay: 1000
+
+    # Override the UserApiService with test configuration
+    App\Service\UserApiService:
+        arguments:
+            $params: !service { class: Symfony\Component\DependencyInjection\ParameterBag\ContainerBagInterface }
+            $httpClient: '@http_client'

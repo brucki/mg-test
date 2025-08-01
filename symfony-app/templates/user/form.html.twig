@@ -1,0 +1,292 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ title }} - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="h4 mb-0">{{ title }}</h2>
+                    <a href="{{ path('user_index') }}" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" title="Powrót do listy użytkowników">
+                        <i class="bi bi-arrow-left"></i> Lista użytkowników
+                    </a>
+                </div>
+                <div class="card-body">
+                    {{ form_start(form, {
+                        'method': 'POST',
+                        'attr': {
+                            'class': 'needs-validation',
+                            'novalidate': 'novalidate',
+                            'id': 'userForm'
+                        }
+                    }) }}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                {{ form_label(form.firstName, 'Imię', {'label_attr': {'class': 'form-label fw-bold'}}) }}
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
+                                    {{ form_widget(form.firstName, {
+                                        'attr': {
+                                            'class': 'form-control' ~ (form.firstName.vars.valid ? '' : ' is-invalid'),
+                                            'placeholder': 'Wprowadź imię',
+                                            'autofocus': 'autofocus'
+                                        }
+                                    }) }}
+                                </div>
+                                <div class="invalid-feedback d-block">
+                                    {{ form_errors(form.firstName) }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_label(form.lastName, 'Nazwisko', {'label_attr': {'class': 'form-label fw-bold'}}) }}
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-person-badge-fill"></i></span>
+                                    {{ form_widget(form.lastName, {
+                                        'attr': {
+                                            'class': 'form-control' ~ (form.lastName.vars.valid ? '' : ' is-invalid'),
+                                            'placeholder': 'Wprowadź nazwisko'
+                                        }
+                                    }) }}
+                                </div>
+                                <div class="invalid-feedback d-block">
+                                    {{ form_errors(form.lastName) }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="form-label fw-bold">Płeć</div>
+                            {% for child in form.gender %}
+                                <div class="form-check form-check-inline">
+                                    {{ form_widget(child, {
+                                        'attr': {
+                                            'class': 'form-check-input' ~ (form.gender.vars.valid ? '' : ' is-invalid')
+                                        }
+                                    }) }}
+                                    {{ form_label(child, null, {
+                                        'label_attr': {'class': 'form-check-label'}
+                                    }) }}
+                                </div>
+                            {% endfor %}
+                            <div class="invalid-feedback d-block">
+                                {{ form_errors(form.gender) }}
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            {{ form_label(form.birthdate, 'Data urodzenia', {'label_attr': {'class': 'form-label fw-bold'}}) }}
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-calendar3"></i></span>
+                                {{ form_widget(form.birthdate, {
+                                    'attr': {
+                                        'class': 'form-control' ~ (form.birthdate.vars.valid ? '' : ' is-invalid'),
+                                        'placeholder': 'DD.MM.RRRR',
+                                        'data-bs-toggle': 'tooltip',
+                                        'title': 'Format: DD.MM.RRRR (np. 01.01.1990)'
+                                    }
+                                }) }}
+                            </div>
+                            <div class="form-text">Wprowadź datę w formacie DD.MM.RRRR</div>
+                            <div class="invalid-feedback d-block">
+                                {{ form_errors(form.birthdate) }}
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between pt-3 border-top">
+                            <a href="{{ path('user_index') }}" class="btn btn-outline-secondary" data-no-spinner>
+                                <i class="bi bi-x-lg"></i> Anuluj
+                            </a>
+                            <button type="submit" class="btn btn-primary px-4" id="submitButton" name="user[submit]">
+                                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                <i class="bi bi-save"></i> Zapisz zmiany
+                            </button>
+                        </div>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+    // Enhanced form validation with AJAX submission
+    document.addEventListener('DOMContentLoaded', function() {
+        // Remove any existing event listeners to prevent duplicates
+        const form = document.getElementById('userForm');
+        if (!form) return;
+        
+        // Clone the form and replace it to remove all event listeners
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        
+        // Get references to the new form elements
+        const submitButton = document.getElementById('submitButton');
+        const spinner = submitButton?.querySelector('.spinner-border');
+        const saveIcon = submitButton?.querySelector('i');
+        let isSubmitting = false;
+        
+        // Add a single submit event listener
+        newForm.addEventListener('submit', async function handleSubmit(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Prevent multiple submissions
+            if (isSubmitting) {
+                console.log('Form submission already in progress');
+                return;
+            }
+            
+            // Check if form is valid
+            if (!newForm.checkValidity()) {
+                newForm.classList.add('was-validated');
+                return;
+            }
+            
+            // Set submitting state
+            isSubmitting = true;
+            if (submitButton) {
+                submitButton.disabled = true;
+                if (spinner) spinner.classList.remove('d-none');
+                if (saveIcon) saveIcon.classList.add('d-none');
+            }
+            
+            try {
+                // Prepare form data
+                const formData = new FormData(newForm);
+                const data = {};
+                
+                // Convert FormData to plain object with snake_case field names
+                for (let [key, value] of formData.entries()) {
+                    // Convert field names from camelCase to snake_case
+                    let fieldName = key.replace(/\[([^\]]+)\]/g, (_, p1) => 
+                        '_' + p1.replace(/([A-Z])/g, '_$1').toLowerCase()
+                    ).replace(/^_/, '');
+                    
+                    // Handle nested fields (user[field])
+                    if (key.includes('[')) {
+                        const [prefix, field] = key.replace(']', '').split('[');
+                        const snakeField = field.replace(/([A-Z])/g, '_$1').toLowerCase();
+                        if (!data[prefix]) data[prefix] = {};
+                        data[prefix][snakeField] = value;
+                    } else {
+                        data[fieldName] = value;
+                    }
+                }
+                
+                console.log('Submitting form data:', data);
+                let response;
+                
+                try {
+                    // Prepare the request data - ensure it's nested under 'user' key
+                    const requestData = {
+                        user: data.user || data
+                    };
+                    console.log('Sending request data:', requestData);
+                    
+                    // Determine the API URL based on the current hostname
+                    const apiHost = window.location.hostname === 'symfony' ? 'http://phoenix:4000' : 'http://localhost:4000';
+                    
+                    // Make the API request with proper CORS headers
+                    response = await fetch(`${apiHost}/users`, {
+                        method: 'POST',
+                        mode: 'cors',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Origin': window.location.origin
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+                    
+                    console.log('Response status:', response.status);
+                    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                    
+                    // Try to parse the response as JSON, but handle non-JSON responses
+                    let responseData;
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        responseData = await response.json().catch(() => ({}));
+                    } else {
+                        responseData = await response.text().catch(() => ({}));
+                    }
+                    
+                    console.log('Response data:', responseData);
+                    
+                    if (!response.ok) {
+                        throw new Error(
+                            responseData.message || 
+                            responseData.error || 
+                            `Błąd serwera: ${response.status} ${response.statusText}`
+                        );
+                    }
+                    
+                } catch (error) {
+                    console.error('Błąd podczas wysyłania formularza:', error);
+                    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                        throw new Error('Nie można połączyć się z serwerem API. Sprawdź połączenie sieciowe lub skontaktuj się z administratorem.');
+                    } else if (error.name === 'TypeError' && error.message.includes('NetworkError')) {
+                        throw new Error('Błąd sieci. Sprawdź połączenie internetowe i spróbuj ponownie.');
+                    } else if (error.name === 'SyntaxError') {
+                        throw new Error('Nieprawidłowa odpowiedź z serwera. Skontaktuj się z administratorem.');
+                    }
+                    throw error; // Re-throw other errors
+                }
+                
+                // On success, redirect to user list
+                console.log('Form submitted successfully, redirecting...');
+                window.location.href = '{{ path('user_index') }}';
+                
+            } catch (error) {
+                console.error('Form submission error:', error);
+                alert(error.message || 'Wystąpił błąd połączenia z serwerem');
+            } finally {
+                // Reset submitting state
+                isSubmitting = false;
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    if (spinner) spinner.classList.add('d-none');
+                    if (saveIcon) saveIcon.classList.remove('d-none');
+                }
+            }
+        });
+        
+        // Real-time validation on input change
+        const inputs = form.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                if (input.checkValidity()) {
+                    input.classList.remove('is-invalid');
+                    input.classList.add('is-valid');
+                } else {
+                    input.classList.remove('is-valid');
+                }
+            });
+            
+            // Add validation on blur
+            input.addEventListener('blur', function() {
+                if (input.checkValidity()) {
+                    input.classList.remove('is-invalid');
+                    input.classList.add('is-valid');
+                } else {
+                    input.classList.add('is-invalid');
+                    input.classList.remove('is-valid');
+                }
+            });
+        });
+        
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+    </script>
+{% endblock %}
+{% endblock %}

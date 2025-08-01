@@ -1,0 +1,802 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Lista Użytkowników - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div id="app">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="mb-0">Lista Użytkowników</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{{ path('user_index') }}">Strona główna</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Użytkownicy</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="d-flex gap-2">
+            <button 
+                @click="importUsers" 
+                class="btn btn-outline-primary"
+                :disabled="isImporting"
+                title="Zaimportuj przykładowych użytkowników"
+            >
+                <span v-if="isImporting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                <i v-else class="bi bi-cloud-arrow-down me-1"></i>
+                <span>Importuj</span>
+            </button>
+            <a href="{{ path('user_new') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> Dodaj Użytkownika
+            </a>
+        </div>
+    </div>
+
+    {# Flash Messages #}
+    <template v-if="flashMessages.length > 0">
+        <div v-for="(message, index) in flashMessages" :key="index" 
+             class="alert" :class="'alert-' + message.type" role="alert">
+            [[ message.text ]]
+            <button type="button" class="btn-close" @click="removeFlashMessage(index)" aria-label="Close"></button>
+        </div>
+    </template>
+
+    {# Loading State #}
+    <div v-if="isLoading" class="text-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Ładowanie...</span>
+        </div>
+        <p class="mt-2">Ładowanie listy użytkowników...</p>
+    </div>
+
+    {# Error State #}
+    <div v-else-if="error" class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        [[ error ]]
+        <button class="btn btn-sm btn-outline-danger ms-3" @click="fetchUsers">
+            <i class="bi bi-arrow-clockwise"></i> Spróbuj ponownie
+        </button>
+    </div>
+
+    {# Filter Form #}
+    <div v-else class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Filtry</h5>
+        </div>
+        <div class="card-body">
+            <form @submit.prevent="applyFilters" class="row g-3">
+                <div class="col-md-3">
+                    <label for="firstNameFilter" class="form-label">Imię</label>
+                    <input type="text" class="form-control" id="firstNameFilter" v-model="filters.firstName" 
+                           placeholder="Wpisz imię">
+                </div>
+                <div class="col-md-3">
+                    <label for="lastNameFilter" class="form-label">Nazwisko</label>
+                    <input type="text" class="form-control" id="lastNameFilter" v-model="filters.lastName" 
+                           placeholder="Wpisz nazwisko">
+                </div>
+                <div class="col-md-2">
+                    <label for="genderFilter" class="form-label">Płeć</label>
+                    <select id="genderFilter" class="form-select" v-model="filters.gender">
+                        <option value="">Wszystkie</option>
+                        <option value="male">Mężczyzna</option>
+                        <option value="female">Kobieta</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="birthdateFrom" class="form-label">Data urodzenia od</label>
+                    <input type="date" class="form-control" id="birthdateFrom" v-model="filters.birthdateFrom">
+                </div>
+                <div class="col-md-2">
+                    <label for="birthdateTo" class="form-label">Data urodzenia do</label>
+                    <input type="date" class="form-control" id="birthdateTo" v-model="filters.birthdateTo">
+                </div>
+                <div class="col-12 mt-4">
+                    <button type="submit" class="btn btn-primary me-2" :disabled="isLoading">
+                        <i class="bi bi-funnel me-1"></i> Filtruj
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" @click="resetFilters" :disabled="isLoading">
+                        <i class="bi bi-x-circle me-1"></i> Wyczyść filtry
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# Users Table #}
+    <div class="card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="card-title mb-0">Lista użytkowników</h5>
+                <div class="text-muted small">
+                    <span v-if="totalItems > 0">
+                        Wyświetlono <strong>[[ (currentPage - 1) * perPage + 1 ]]-[[ Math.min(currentPage * perPage, totalItems) ]]</strong> z <strong>[[ totalItems ]]</strong> użytkowników
+                    </span>
+                    <span v-else>Brak użytkowników</span>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th @click="sortBy('id')" style="cursor: pointer;">
+                                ID
+                                <i v-if="sortField === 'id'" :class="sortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down'"></i>
+                            </th>
+                            <th @click="sortBy('first_name')" style="cursor: pointer;">
+                                Imię
+                                <i v-if="sortField === 'first_name'" :class="sortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down'"></i>
+                            </th>
+                            <th @click="sortBy('last_name')" style="cursor: pointer;">
+                                Nazwisko
+                                <i v-if="sortField === 'last_name'" :class="sortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down'"></i>
+                            </th>
+                            <th @click="sortBy('gender')" style="cursor: pointer;">
+                                Płeć
+                                <i v-if="sortField === 'gender'" :class="sortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down'"></i>
+                            </th>
+                            <th @click="sortBy('birthdate')" style="cursor: pointer;">
+                                Data urodzenia
+                                <i v-if="sortField === 'birthdate'" :class="sortDirection === 'asc' ? 'bi bi-arrow-up' : 'bi bi-arrow-down'"></i>
+                            </th>
+                            <th>Akcje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="users.length === 0">
+                            <td colspan="5" class="text-center text-muted py-4">
+                                Brak użytkowników do wyświetlenia
+                            </td>
+                        </tr>
+                        <tr v-for="user in users" :key="user.id">
+                            <td>[[ user.id ]]</td>
+                            <td>[[ user.first_name ]]</td>
+                            <td>[[ user.last_name ]]</td>
+                            <td>[[ user.gender === 'male' ? 'mężczyzna' : user.gender === 'female' ? 'kobieta' : user.gender ]]</td>
+                            <td>[[ formatDate(user.birthdate) ]]</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a v-if="user.id" :href="'/users/' + user.id"
+                                       class="btn btn-outline-info" 
+                                       title="Szczegóły">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a v-if="user.id" href="#" 
+                                       @click.prevent="navigateToEdit(user.id)"
+                                       class="btn btn-outline-primary" 
+                                       title="Edytuj">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <span v-else class="text-muted">Brak ID</span>
+                                    <button @click="confirmDelete(user)" 
+                                            class="btn btn-outline-danger" 
+                                            title="Usuń"
+                                            :disabled="isDeleting">
+                                        <i class="bi" :class="isDeleting ? 'bi-hourglass-split' : 'bi-trash'"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <nav v-if="totalPages > 1" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item" :class="{ 'disabled': currentPage === 1 }">
+                        <button class="page-link" @click="changePage(1)" :disabled="currentPage === 1">
+                            <i class="bi bi-chevron-bar-left"></i>
+                        </button>
+                    </li>
+                    <li class="page-item" :class="{ 'disabled': currentPage === 1 }">
+                        <button class="page-link" @click="changePage(currentPage - 1)" :disabled="currentPage === 1">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                    </li>
+                    
+                    <li v-for="page in visiblePages" :key="page" class="page-item" :class="{ 'active': page === currentPage }">
+                        <button class="page-link" @click="changePage(page)">
+                            [[ page ]]
+                        </button>
+                    </li>
+                    
+                    <li class="page-item" :class="{ 'disabled': currentPage === totalPages }">
+                        <button class="page-link" @click="changePage(currentPage + 1)" :disabled="currentPage === totalPages">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </li>
+                    <li class="page-item" :class="{ 'disabled': currentPage === totalPages }">
+                        <button class="page-link" @click="changePage(totalPages)" :disabled="currentPage === totalPages">
+                            <i class="bi bi-chevron-bar-right"></i>
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- Items per page selector -->
+                <div class="d-flex align-items-center ms-3">
+                    <label for="perPageSelect" class="form-label mb-0 me-2">Na stronie:</label>
+                    <select 
+                        id="perPageSelect" 
+                        class="form-select form-select-sm" 
+                        style="width: auto;"
+                        v-model="perPage"
+                        @change="changePerPage"
+                    >
+                        <option v-for="option in perPageOptions" :value="option" :key="option">
+                            [[ option ]]
+                        </option>
+                    </select>
+                </div>
+            </nav>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Potwierdź usunięcie</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Czy na pewno chcesz usunąć użytkownika <strong>[[ userToDelete?.username ]]</strong>?
+                    Tej operacji nie można cofnąć.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" :disabled="isDeleting">
+                        Anuluj
+                    </button>
+                    <button type="button" class="btn btn-danger" @click="deleteUser" :disabled="isDeleting">
+                        <span v-if="isDeleting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        [[ isDeleting ? 'Usuwanie...' : 'Usuń' ]]
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        // Wait for the DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('User index page loaded');
+            
+            // Check if Vue is loaded
+            if (typeof Vue === 'undefined') {
+                console.error('Vue is not loaded. Make sure the Vue script is included before this script.');
+                return;
+            }
+            
+            console.log('Vue version:', Vue.version);
+            
+            // Check if app is already mounted
+            if (window.vueAppMounted) {
+                console.warn('Vue app is already mounted');
+                return;
+            }
+            
+            // Simple debug function
+            function logDebug(message) {
+                console.log(`[UserList] ${message}`);
+            }
+                // Create the Vue app
+                const app = Vue.createApp({
+                    // Add a name for better debugging
+                    name: 'UserListApp',
+                    data() {
+                        return {
+                            // Sorting
+                            sortField: 'id',
+                            sortDirection: 'asc',
+                            // User data
+                            users: [],
+                            currentPage: 1,
+                            perPage: 10,
+                            totalItems: 0,
+                            totalPages: 1,
+                            // Filters
+                            filters: {
+                                firstName: '',
+                                lastName: '',
+                                gender: '',
+                                birthdateFrom: '',
+                                birthdateTo: ''
+                            },
+                            // UI State
+                            isLoading: true,
+                            isImporting: false,
+                            isDeleting: false,
+                            error: null,
+                            flashMessages: [],
+                            userToDelete: null,
+                            deleteModal: null,
+                            perPageOptions: [10, 25, 50, 100],
+                            
+                            // Debug info
+                            debugInfo: {
+                                vueVersion: Vue.version,
+                                isVue3: !!Vue.createApp,
+                                apiUrl: 'http://localhost:4000/users',
+                                config: {
+                                    devtools: Vue.config ? Vue.config.devtools : false,
+                                    productionTip: Vue.config ? Vue.config.productionTip : false
+                                }
+                            }
+                        };
+                    },
+                    computed: {
+                        visiblePages() {
+                            const range = [];
+                            const maxVisible = 5;
+                            let start = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
+                            let end = Math.min(this.totalPages, start + maxVisible - 1);
+                            
+                            if (end - start + 1 < maxVisible) {
+                                start = Math.max(1, end - maxVisible + 1);
+                            }
+                            
+                            for (let i = start; i <= end; i++) {
+                                range.push(i);
+                            }
+                            
+                            return range;
+                        }
+                    },
+                    methods: {
+                        // Sort table by column
+                        sortBy(field) {
+                            if (this.sortField === field) {
+                                // Toggle sort direction if same field is clicked
+                                this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+                            } else {
+                                // Default to ascending when a new column is selected
+                                this.sortField = field;
+                                this.sortDirection = 'asc';
+                            }
+                            this.fetchUsers();
+                        },
+
+                        // Apply filters and refresh the user list
+                        applyFilters() {
+                            this.currentPage = 1; // Reset to first page when filters change
+                            this.fetchUsers();
+                        },
+                        
+                        // Reset all filters
+                        resetFilters() {
+                            this.filters = {
+                                firstName: '',
+                                lastName: '',
+                                gender: '',
+                                birthdateFrom: '',
+                                birthdateTo: ''
+                            };
+                            this.applyFilters();
+                        },
+                        
+                        // Check if any filters are active
+                        hasActiveFilters() {
+                            return Object.values(this.filters).some(value => 
+                                value !== null && value !== '' && value !== undefined
+                            );
+                        },
+                        
+                        // Format date to YYYY-MM-DD for the API
+                        formatDateForApi(dateString) {
+                            if (!dateString) return '';
+                            const date = new Date(dateString);
+                            return date.toISOString().split('T')[0];
+                        },
+                        
+                        // Fetch users from Phoenix API
+                        async fetchUsers() {
+                            logDebug('Starting fetchUsers...');
+                            this.isLoading = true;
+                            this.error = null;
+                            logDebug('Set loading state: true');
+                            
+                            // Build the API URL with query parameters
+                            const params = new URLSearchParams({
+                                page: this.currentPage,
+                                per_page: this.perPage,
+                                sort_by: this.sortField,
+                                sort_order: this.sortDirection,
+                                // Add filter parameters if they have values
+                                ...(this.filters.firstName && { first_name: this.filters.firstName }),
+                                ...(this.filters.lastName && { last_name: this.filters.lastName }),
+                                ...(this.filters.gender && { gender: this.filters.gender }),
+                                ...(this.filters.birthdateFrom && { birthdate_from: this.formatDateForApi(this.filters.birthdateFrom) }),
+                                ...(this.filters.birthdateTo && { birthdate_to: this.formatDateForApi(this.filters.birthdateTo) })
+                            });
+                            
+                            const apiUrl = `${this.debugInfo.apiUrl}?${params.toString()}`;
+                            console.log('Fetching users from:', apiUrl);
+                            
+                            try {
+                                const startTime = performance.now();
+                                const response = await fetch(apiUrl, {
+                                    method: 'GET',
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'Content-Type': 'application/json'
+                                    },
+                                    credentials: 'include',
+                                    mode: 'cors'
+                                });
+                                
+                                const responseTime = Math.round(performance.now() - startTime);
+                                console.log(`API response (${response.status}) in ${responseTime}ms`);
+                                
+                                if (!response.ok) {
+                                    let errorDetails = '';
+                                    try {
+                                        const errorData = await response.json();
+                                        errorDetails = errorData.message || JSON.stringify(errorData);
+                                    } catch (e) {
+                                        errorDetails = await response.text();
+                                    }
+                                    console.error('API error details:', errorDetails);
+                                    throw new Error(`Błąd HTTP ${response.status}: ${response.statusText || 'Brak odpowiedzi'}`);
+                                }
+                                
+                                const data = await response.json();
+                                console.log('API response data:', data);
+                                
+                                // Handle the Phoenix API response format
+                                if (data.data && Array.isArray(data.data)) {
+                                    console.log('Received Phoenix API response with', data.data.length, 'users');
+                                    this.users = data.data.map(user => ({
+                                        id: user.id,
+                                        username: `${user.first_name} ${user.last_name}`.trim() || `Użytkownik ${user.id}`,
+                                        first_name: user.first_name || '',
+                                        last_name: user.last_name || '',
+                                        birthdate: user.birthdate || null,
+                                        gender: user.gender || 'not_specified',
+                                        inserted_at: user.inserted_at,
+                                        updated_at: user.updated_at
+                                    }));
+                                    
+                                    // Use meta data if available, otherwise calculate from data
+                                    this.totalItems = data.meta?.total_count || data.data.length;
+                                    this.totalPages = data.meta?.total_pages || Math.ceil(this.totalItems / this.perPage);
+                                    
+                                    console.log('Processed users:', this.users);
+                                } else {
+                                    console.error('Unexpected API response format:', data);
+                                    throw new Error('Nieprawidłowy format odpowiedzi z serwera');
+                                }
+                                
+                            } catch (err) {
+                                console.error('Error fetching users:', err);
+                                this.error = `Nie udało się załadować listy użytkowników: ${err.message}`;
+                                this.users = [];
+                            } finally {
+                                this.isLoading = false;
+                            }
+                        },
+                        
+                        // Format date for display
+                        formatDate(dateString) {
+                            if (!dateString) return '';
+                            const date = new Date(dateString);
+                            return date.toLocaleDateString('pl-PL', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric'
+                            });
+                        },
+                        
+                        // Change page
+                        changePage(page) {
+                            if (page >= 1 && page <= this.totalPages) {
+                                this.currentPage = page;
+                                this.fetchUsers();
+                            }
+                        },
+                        
+                        // Change items per page
+                        changePerPage() {
+                            // Reset to first page when changing items per page
+                            this.currentPage = 1;
+                            this.fetchUsers();
+                        },
+                        
+                        // User deletion
+                        confirmDelete(user) {
+                            this.userToDelete = user;
+                            if (!this.deleteModal) {
+                                this.deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+                            }
+                            this.deleteModal.show();
+                        },
+                        
+                        async deleteUser() {
+                            if (!this.userToDelete) return;
+                            
+                            this.isDeleting = true;
+                            
+                            try {
+                                const response = await fetch(`${this.debugInfo.apiUrl}/${this.userToDelete.id}`, {
+                                    method: 'DELETE',
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'Content-Type': 'application/json'
+                                    },
+                                    credentials: 'include'
+                                });
+                                
+                                if (!response.ok) {
+                                    throw new Error(`Błąd HTTP: ${response.status}`);
+                                }
+                                
+                                // Close the modal
+                                if (this.deleteModal) {
+                                    this.deleteModal.hide();
+                                }
+                                
+                                // Show success message
+                                this.addFlashMessage(
+                                    `Użytkownik ${this.userToDelete.username} został pomyślnie usunięty.`,
+                                    'success'
+                                );
+                                
+                                // Refresh the user list
+                                this.fetchUsers();
+                                
+                            } catch (err) {
+                                console.error('Error deleting user:', err);
+                                this.addFlashMessage(
+                                    `Wystąpił błąd podczas usuwania użytkownika: ${err.message}`,
+                                    'danger'
+                                );
+                            } finally {
+                                this.isDeleting = false;
+                                this.userToDelete = null;
+                            }
+                        },
+                        
+                        // Navigate to edit page
+                        navigateToEdit(userId) {
+                            // Force a full page reload to ensure Vue reinitializes
+                            window.location.href = `/users/${userId}/edit`;
+                        },
+                        
+                        // Add a flash message
+                        addFlashMessage(message, type = 'info') {
+                            this.flashMessages.push({
+                                id: Date.now(),
+                                message: message,
+                                type: type
+                            });
+                            
+                            // Auto-remove the message after 5 seconds
+                            setTimeout(() => {
+                                this.flashMessages = this.flashMessages.filter(m => m.id !== this.flashMessages[this.flashMessages.length - 1].id);
+                            }, 5000);
+                        },
+                        
+                        // Import users from API
+                        async importUsers() {
+                            if (this.isImporting) return;
+                            
+                            this.isImporting = true;
+                            this.error = null;
+                            
+                            try {
+                                const response = await fetch('http://localhost:4000/import', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                        // Add any required authentication token here
+                                        'Authorization': 'Bearer your_api_token_here' // Replace with actual token or get from storage
+                                    },
+                                    credentials: 'include' // Important for sending cookies if using session auth
+                                });
+                                
+                                // Check if the response has content before trying to parse as JSON
+                                const responseText = await response.text();
+                                const data = responseText ? JSON.parse(responseText) : {};
+                                
+                                if (!response.ok) {
+                                    throw new Error(data.error?.message || data.message || 'Wystąpił błąd podczas importu');
+                                }
+                                
+                                this.addFlashMessage('Pomyślnie pobrano dane z bazy PESEL i wygenerowano 100 użytkowników', 'success');
+                                
+                                // Refresh the user list after successful import
+                                this.fetchUsers();
+                                
+                            } catch (err) {
+                                console.error('Import error:', err);
+                                this.addFlashMessage(`Błąd importu: ${err.message}`, 'danger');
+                            } finally {
+                                this.isImporting = false;
+                            }
+                        },
+                        
+                        removeFlashMessage(index) {
+                            if (index >= 0 && index < this.flashMessages.length) {
+                                this.flashMessages.splice(index, 1);
+                            }
+                        },
+                        
+                        // Debug info
+                        showDebugInfo() {
+                            console.log('App state:', {
+                                users: this.users,
+                                pagination: {
+                                    currentPage: this.currentPage,
+                                    perPage: this.perPage,
+                                    totalItems: this.totalItems,
+                                    totalPages: this.totalPages,
+                                    sortBy: this.sortField,
+                                    sortOrder: this.sortDirection
+                                },
+                                uiState: {
+                                    isLoading: this.isLoading,
+                                    isDeleting: this.isDeleting,
+                                    error: this.error
+                                },
+                                debugInfo: this.debugInfo
+                            });
+                        }
+                    },
+                    
+                    // Lifecycle hooks
+                    mounted() {
+                        logDebug('Vue app mounted');
+                        
+                        // Log the current state before fetching users
+                        logDebug('Initial state: ' + JSON.stringify({
+                            usersCount: this.users.length,
+                            isLoading: this.isLoading,
+                            error: this.error
+                        }));
+                        
+                        // Initialize Bootstrap modal
+                        try {
+                            this.$nextTick(() => {
+                                logDebug('Initializing Bootstrap modal...');
+                                const modalElement = document.getElementById('deleteModal');
+                                if (modalElement) {
+                                    this.deleteModal = new bootstrap.Modal(modalElement);
+                                    logDebug('Bootstrap modal initialized successfully');
+                                } else {
+                                    logDebug('Could not find deleteModal element');
+                                }
+                            });
+                        } catch (modalError) {
+                            logDebug('Error initializing Bootstrap modal: ' + modalError.message);
+                            console.error('Modal error:', modalError);
+                        }
+                        
+                        // Check for flash messages from server
+                        try {
+                            logDebug('Checking for flash messages...');
+                            const flashMessages = [];
+                            {% for type, messages in app.flashes %}
+                                {% for message in messages %}
+                                    flashMessages.push({
+                                        text: '{{ message|e('js') }}',
+                                        type: '{{ type }}'
+                                    });
+                                {% endfor %}
+                            {% endfor %}
+                            
+                            if (flashMessages.length > 0) {
+                                logDebug(`Found ${flashMessages.length} flash messages`);
+                                this.flashMessages = flashMessages;
+                            } else {
+                                logDebug('No flash messages found');
+                            }
+                        } catch (flashError) {
+                            logDebug('Error processing flash messages: ' + flashError.message);
+                            console.error('Flash error:', flashError);
+                        }
+                        
+                        // Fetch users after a short delay to ensure everything is initialized
+                        logDebug('Scheduling fetchUsers...');
+                        setTimeout(() => {
+                            logDebug('Calling fetchUsers...');
+                            this.fetchUsers().catch(error => {
+                                logDebug('Error in fetchUsers: ' + error.message);
+                                console.error('Fetch users error:', error);
+                            });
+                        }, 100);
+                    },
+                    
+                    errorCaptured(err, vm, info) {
+                        console.error('Vue error captured:', { err, vm, info });
+                        this.error = `Wystąpił błąd aplikacji: ${err.message}`;
+                        return false;
+                    }
+                });
+
+                // Configure and mount Vue app
+                try {
+                    console.log('Configuring Vue app...');
+                    
+                    // Set custom delimiters to avoid conflicts with Twig
+                    if (app.config) {
+                        if (!app.config.compilerOptions) {
+                            app.config.compilerOptions = {};
+                        }
+                        app.config.compilerOptions.delimiters = ['[[', ']]'];
+                        // Enable devtools in development, disable in production
+                        app.config.devtools = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                        app.config.productionTip = false;
+                    }
+                    
+                    console.log('Vue app configuration:', {
+                        delimiters: app.config?.compilerOptions?.delimiters,
+                        devtools: app.config?.devtools,
+                        productionTip: app.config?.productionTip
+                    });
+                    
+                    // Mount the app
+                    console.log('Looking for #app element...');
+                    const appElement = document.getElementById('app');
+                    
+                    if (!appElement) {
+                        throw new Error('Could not find #app element in the DOM');
+                    }
+                    
+                    console.log('Found #app element, mounting Vue app...');
+                    
+                    // Mount the app
+                    const vm = app.mount('#app');
+                    console.log('Vue app mounted successfully');
+                    
+                    // Mark as mounted to prevent duplicate mounts
+                    window.vueAppMounted = true;
+                    
+                    // Set up global error handler
+                    const handleError = (error, vm, info) => {
+                        console.error('Vue error:', { error, vm, info });
+                        if (vm && vm.error) {
+                            vm.error = `Wystąpił błąd: ${error?.message || 'Nieznany błąd'}`;
+                        }
+                    };
+                    
+                    // Set up error handling
+                    app.config.errorHandler = handleError;
+                    
+                    window.addEventListener('unhandledrejection', (event) => {
+                        console.error('Unhandled promise rejection:', event.reason);
+                        if (vm?.error) {
+                            vm.error = `Wystąpił nieoczekiwany błąd: ${event.reason?.message || 'Nieznany błąd'}`;
+                        }
+                    });
+                    
+                    // Fetch users after a short delay to ensure everything is initialized
+                    setTimeout(() => {
+                        if (vm?.fetchUsers) {
+                            console.log('Fetching users...');
+                            vm.fetchUsers().catch(err => {
+                                console.error('Error in fetchUsers:', err);
+                            });
+                        }
+                    }, 100);
+                    
+                    return;
+                } catch (err) {
+                    console.error('Error configuring Vue:', err);
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'alert alert-danger';
+                    errorDiv.innerHTML = `
+                        <h4>Błąd podczas konfiguracji Vue.js</h4>
+                        <p>${err.message}</p>
+                        <p class="mb-0">Sprawdź konsolę przeglądarki, aby uzyskać więcej szczegółów.</p>
+                    `;
+                    document.body.prepend(errorDiv);
+                }
+        });
+    </script>
+{% endblock %}
+{% endblock %}

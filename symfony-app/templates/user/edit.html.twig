@@ -1,0 +1,219 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Edytuj Użytkownika - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div id="user-edit-app" data-user-id="{{ user_id }}">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0">Edytuj Użytkownika</h2>
+                    <span class="badge bg-warning">ID: {{ user_id }}</span>
+                </div>
+                <div class="card-body">
+                    <!-- Loading State -->
+                    <div v-if="loading" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Ładowanie...</span>
+                        </div>
+                        <p class="mt-2">Ładowanie danych użytkownika...</p>
+                    </div>
+
+                    <!-- Error State -->
+                    <div v-if="error" class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        [[ error ]]
+                    </div>
+
+                    <!-- User Form -->
+                    <div v-if="!loading && !error && user">
+                        <p class="text-muted">Edytuj dane użytkownika w systemie.</p>
+                        
+                        <form @submit.prevent="saveUser">
+                            <div class="mb-3">
+                                <label for="firstName" class="form-label">Imię</label>
+                                <input type="text" class="form-control" id="firstName" v-model="user.firstName" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="lastName" class="form-label">Nazwisko</label>
+                                <input type="text" class="form-control" id="lastName" v-model="user.lastName" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Płeć</label>
+                                <div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" id="genderMale" value="male" v-model="user.gender" required>
+                                        <label class="form-check-label" for="genderMale">Mężczyzna</label>
+                                    </div>
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" id="genderFemale" value="female" v-model="user.gender">
+                                        <label class="form-check-label" for="genderFemale">Kobieta</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="birthdate" class="form-label">Data urodzenia</label>
+                                <input type="date" class="form-control" id="birthdate" v-model="user.birthdate" required>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between">
+                                <a href="{{ path('user_index') }}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> Powrót do listy
+                                </a>
+                                <div>
+                                    <a :href="'{{ path('user_show', {id: 0 }) }}'.replace('/0', '/' + user.id)" class="btn btn-info">
+                                        <i class="bi bi-eye"></i> Pokaż szczegóły
+                                    </a>
+                                    <button type="submit" class="btn btn-success" :disabled="saving">
+                                        <span v-if="saving" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        <i v-else class="bi bi-save"></i> Zapisz zmiany
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const appElement = document.getElementById('user-edit-app');
+            if (!appElement) return;
+            
+            const userId = appElement.dataset.userId;
+            // Use Phoenix API URL directly
+            const apiBaseUrl = 'http://localhost:4000';
+            
+            const app = Vue.createApp({
+                delimiters: ['[[', ']]'],
+                data() {
+                    return {
+                        loading: true,
+                        saving: false,
+                        error: null,
+                        user: null
+                    };
+                },
+                async created() {
+                    await this.fetchUser();
+                },
+                methods: {
+                    async fetchUser() {
+                        this.loading = true;
+                        this.error = null;
+                        
+                        try {
+                            const apiUrl = `${apiBaseUrl}/users/${userId}`;
+                            console.log('Fetching user data from:', apiUrl);
+                            
+                            const response = await fetch(apiUrl, {
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                credentials: 'same-origin' // Include cookies for session
+                            });
+                            
+                            console.log('Response status:', response.status, response.statusText);
+                            
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                console.error('Error response:', errorText);
+                                throw new Error('Nie udało się pobrać danych użytkownika: ' + 
+                                    `${response.status} ${response.statusText}`);
+                            }
+                            
+                            const data = await response.json();
+                            console.log('Received user data:', data);
+                            
+                            if (!data.data) {
+                                console.error('Unexpected API response format - missing data property');
+                                throw new Error('Nieprawidłowy format odpowiedzi z serwera');
+                            }
+                            
+                            // Map API response to our frontend format
+                            this.user = {
+                                id: data.data.id,
+                                firstName: data.data.first_name || '',
+                                lastName: data.data.last_name || '',
+                                gender: data.data.gender || 'male',
+                                birthdate: data.data.birthdate ? 
+                                    new Date(data.data.birthdate).toISOString().split('T')[0] : 
+                                    ''
+                            };
+                            
+                            console.log('Mapped user data:', this.user);
+                        } catch (err) {
+                            console.error('Error fetching user:', err);
+                            this.error = 'Wystąpił błąd podczas pobierania danych użytkownika';
+                        } finally {
+                            this.loading = false;
+                        }
+                    },
+                    
+                    async saveUser() {
+                        if (!this.user) return;
+                        
+                        this.saving = true;
+                        this.error = null;
+                        
+                        try {
+                            const saveUrl = `${apiBaseUrl}/users/${userId}`;
+                            console.log('Saving user data to:', saveUrl);
+                            
+                            // Map frontend format to API format
+                            const requestData = {
+                                user: {
+                                    first_name: this.user.firstName,
+                                    last_name: this.user.lastName,
+                                    gender: this.user.gender,
+                                    birthdate: this.user.birthdate
+                                }
+                            };
+                            
+                            console.log('Sending user data:', requestData);
+                            
+                            const response = await fetch(saveUrl, {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                credentials: 'same-origin',
+                                body: JSON.stringify(requestData)
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (!response.ok) {
+                                throw new Error(data.message || 'Nie udało się zaktualizować danych użytkownika');
+                            }
+                            
+                            // Redirect to user list with success message
+                            window.location.href = `{{ path('user_index') }}?success=1`;
+                            
+                        } catch (err) {
+                            console.error('Error saving user:', err);
+                            this.error = err.message || 'Wystąpił błąd podczas zapisywania danych użytkownika';
+                        } finally {
+                            this.saving = false;
+                        }
+                    }
+                }
+            });
+            
+            app.mount('#user-edit-app');
+        });
+    </script>
+{% endblock %}

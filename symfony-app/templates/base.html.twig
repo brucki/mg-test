@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pl">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block title %}Panel Administracyjny{% endblock %}</title>
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
+        
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        
+        {% block stylesheets %}
+            {{ encore_entry_link_tags('app') }}
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+        {% endblock %}
+    </head>
+    <body>
+        <!-- Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="{{ path('user_index') }}">
+                    <strong>Panel Administracyjny</strong>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ path('user_index') }}">Użytkownicy</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Flash Messages -->
+        {% for type, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="alert alert-{{ type == 'error' ? 'danger' : type }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endfor %}
+
+        <!-- Loading Spinner -->
+        {% include 'partials/_loading_spinner.html.twig' %}
+
+        <!-- Vue App Mount Point -->
+        <!-- The actual Vue app will be mounted by the child templates -->
+
+        <!-- Main Content -->
+        <main class="container mt-4">
+            {% block body %}{% endblock %}
+        </main>
+
+        {% block javascripts %}
+            <!-- jQuery -->
+            <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+            
+            <!-- Bootstrap JS Bundle with Popper -->
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+            
+            <!-- Vue 3 is loaded via Webpack Encore -->
+            <script>
+                // Global error handler for uncaught Vue errors
+                if (typeof Vue !== 'undefined') {
+                    console.log('Vue loaded, version:', Vue.version);
+                    
+                    // Configure Vue in production mode for better performance
+                    if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+                        Vue.config.devtools = false;
+                        Vue.config.productionTip = false;
+                    }
+                }
+                
+                // Global error handler for uncaught JavaScript errors
+                window.addEventListener('error', function(event) {
+                    console.error('Uncaught error:', event.error || event.message, event);
+                    
+                    // Show error in the UI
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'alert alert-danger position-fixed bottom-0 end-0 m-3';
+                    errorDiv.style.zIndex = '9999';
+                    errorDiv.style.maxWidth = '400px';
+                    errorDiv.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div><strong>JavaScript Error:</strong> ${event.message || 'Unknown error'}</div>
+                            <button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()"></button>
+                        </div>
+                        <div class="mt-2 small">Check console for details</div>
+                    `;
+                    document.body.appendChild(errorDiv);
+                });
+                
+                // Vue initialization is handled in individual page components
+            </script>
+            
+            <!-- Webpack Encore entries -->
+            {{ encore_entry_script_tags('app') }}
+            {{ encore_entry_script_tags('user_table') }}
+            <script>
+            // Show loading spinner on form submission and external links
+            document.addEventListener('DOMContentLoaded', function() {
+                // Show spinner on form submission
+                const forms = document.querySelectorAll('form:not([data-no-spinner])');
+                forms.forEach(form => {
+                    form.addEventListener('submit', function() {
+                        const spinner = document.querySelector('.loading-spinner');
+                        if (spinner) spinner.classList.remove('d-none');
+                    });
+                });
+
+                // Show spinner on external links
+                const links = document.querySelectorAll('a:not([href^="#"]):not([href^="/"]):not([href^="{{ app.request.schemeAndHttpHost }}"])');
+                links.forEach(link => {
+                    link.addEventListener('click', function(e) {
+                        const spinner = document.querySelector('.loading-spinner');
+                        if (spinner && !this.hasAttribute('data-no-spinner')) {
+                            spinner.classList.remove('d-none');
+                        }
+                    });
+                });
+
+                // Hide spinner when page is fully loaded
+                window.addEventListener('load', function() {
+                    const spinner = document.querySelector('.loading-spinner');
+                    if (spinner) spinner.classList.add('d-none');
+                });
+
+                // Hide spinner when clicking on modal close buttons
+                const modalCloseButtons = document.querySelectorAll('[data-bs-dismiss="modal"]');
+                modalCloseButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        const spinner = document.querySelector('.loading-spinner');
+                        if (spinner) spinner.classList.add('d-none');
+                    });
+                });
+
+                // Add tooltips
+                const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                tooltipTriggerList.map(function (tooltipTriggerEl) {
+                    return new bootstrap.Tooltip(tooltipTriggerEl);
+                });
+            });
+            </script>
+        {% endblock %}
+        <!-- Simple JavaScript Test -->
+        <script>
+            (function() {
+                console.log('Base template JavaScript is running');
+                
+                // Check if this is a page load after a navigation
+                const navigationType = performance.getEntriesByType('navigation')[0]?.type;
+                const isNavigation = navigationType === 'navigate' || navigationType === 'reload';
+                
+                // If this is a navigation to the user list or edit page, ensure a full page load
+                const isUserPage = window.location.pathname.includes('/users');
+                
+                if (isNavigation && isUserPage) {
+                    // Force a full page reload if this is a navigation to a user page
+                    // This ensures Vue apps are properly initialized
+                    if (sessionStorage.getItem('reload') === 'true') {
+                        sessionStorage.removeItem('reload');
+                    } else {
+                        sessionStorage.setItem('reload', 'true');
+                        window.location.reload();
+                    }
+                }
+                
+                // Handle browser back/forward buttons
+                window.addEventListener('popstate', function() {
+                    if (window.location.pathname.includes('/users')) {
+                        window.location.reload();
+                    }
+                });
+                
+            })();
+        </script>
+    </body>
+</html>

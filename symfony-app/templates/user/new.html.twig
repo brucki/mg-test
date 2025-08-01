@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Dodaj Użytkownika - {{ parent() }}{% endblock %}
+
+{% block body %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="mb-0">Dodaj Nowego Użytkownika</h2>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Wypełnij formularz aby dodać nowego użytkownika do systemu.</p>
+                
+                <!-- Form will be implemented in task 6 -->
+                <div class="alert alert-info">
+                    <strong>Informacja:</strong> Formularz dodawania użytkownika zostanie zaimplementowany w kolejnym etapie.
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{{ path('user_index') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Powrót do listy
+                    </a>
+                    <button type="button" class="btn btn-primary" disabled>
+                        <i class="bi bi-save"></i> Zapisz użytkownika
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

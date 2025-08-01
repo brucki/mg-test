@@ -1,0 +1,16 @@
+/* Custom styles for the application */
+
+/* Fix for form-check width */
+.form-check {
+    display: inline-flex;
+    gap: 1rem;
+}
+
+/* Ensure radio buttons and labels stay on the same line */
+.form-check-input[type="radio"] {
+    margin-right: 0.5rem;
+}
+
+.form-check-label {
+    white-space: nowrap;
+}
