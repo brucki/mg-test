@@ -21,9 +21,9 @@ This is a test project that consists of a Symfony application and a Phoenix API,
    cd morizon-gratka
    ```
 
-2. **Start the services** using Docker Compose:
+2. **Start the services** using Makefile:
    ```bash
-   docker compose up -d
+   make
    ```
 
    This will start the following services:
@@ -40,12 +40,12 @@ This is a test project that consists of a Symfony application and a Phoenix API,
 
 To stop all services:
 ```bash
-docker compose down
+make stop
 ```
 
 To stop and remove all containers, networks, and volumes:
 ```bash
-docker compose down -v
+make down
 ```
 
 ## Development
