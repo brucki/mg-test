@@ -1,4 +1,8 @@
 import * as Vue from 'vue';
+// Expose Vue globally for inline scripts in Twig templates
+if (typeof window !== 'undefined') {
+    window.Vue = Vue;
+}
 import { registerVueControllerComponents } from '@symfony/ux-vue';
 import './bootstrap.js';
 
