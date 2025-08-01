@@ -32,7 +32,7 @@ This is a test project that consists of a Symfony application and a Phoenix API,
    - Symfony application on port 8000
 
 3. **Access the applications**:
-   - Symfony application: http://localhost:8000
+   - Symfony application: http://localhost:8000/users/
    - Phoenix API: http://localhost:4000
    - Database: localhost:5432 (username: postgres, password: postgres)
 
