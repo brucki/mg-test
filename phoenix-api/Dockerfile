@@ -20,13 +20,9 @@ ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
 
 FROM ${BUILDER_IMAGE} as builder
 
-# install build dependencies and tools
-RUN apt-get update -y && apt-get install -y build-essential git sudo wget \
+# install build dependencies
+RUN apt-get update -y && apt-get install -y build-essential git \
     && apt-get clean && rm -f /var/lib/apt/lists/*_*
-
-# Install gosu for better user switching
-RUN wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/1.16/gosu-$(dpkg --print-architecture | awk -F- '{ print $NF }')" \
-    && chmod +x /usr/local/bin/gosu
 
 # prepare build dir
 WORKDIR /app
@@ -66,18 +62,14 @@ RUN mix release
 # the compiled release and other runtime necessities
 FROM ${BUILDER_IMAGE} as runner
 
-# Add PostgreSQL repository and install client and gosu
+# Add PostgreSQL repository and install client
 RUN apt-get update -y && \
-  apt-get install -y wget gnupg2 lsb-release && \
-  sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
-  wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
-  apt-get update -y && \
-  apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates postgresql-client-15 && \
-  # Install gosu for better user switching
-  wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/1.16/gosu-$(dpkg --print-architecture | awk -F- '{ print $NF }')" && \
-  chmod +x /usr/local/bin/gosu && \
-  gosu nobody true && \
-  apt-get clean && rm -f /var/lib/apt/lists/*_*
+    apt-get install -y wget gnupg2 lsb-release && \
+    sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list' && \
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
+    apt-get update -y && \
+    apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates postgresql-client-15 && \
+    apt-get clean && rm -f /var/lib/apt/lists/*_*
 
 # Set the locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
@@ -113,16 +105,8 @@ ENV DATABASE_URL=postgresql://postgres:postgres@db:5432/phoenix_app
 RUN echo '#!/bin/sh\nset -e\n\n# Wait for PostgreSQL to be ready\necho "Waiting for PostgreSQL..."\nuntil pg_isready -h db -p 5432 -U postgres; do\n  echo "PostgreSQL is unavailable - sleeping"\n  sleep 1\ndone\n\necho "PostgreSQL is up - checking if database exists"\n\n# Check if database exists, if not create it\nif ! PGPASSWORD=postgres psql -h db -U postgres -lqt | cut -d \\| -f 1 | grep -qw phoenix_app; then\n  echo "Database phoenix_app does not exist, creating..."\n  PGPASSWORD=postgres createdb -h db -U postgres phoenix_app\nelse\n  echo "Database phoenix_app already exists"\nfi\n\necho "Running migrations..."\n/app/bin/migrate\n\necho "Starting Phoenix server..."\nexec /app/bin/server' > /app/entrypoint.sh && \
     chmod +x /app/entrypoint.sh
 
-# Create appuser and set permissions
-RUN useradd -m -d /home/appuser -s /bin/bash appuser && \
-    chown -R appuser:appuser /app
-
-# Copy entrypoint script
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
 # Set user
-USER appuser
+USER nobody
 
 # The command to run when the container starts
 CMD ["/app/entrypoint.sh"]
